@@ -1,0 +1,138 @@
+# ==============================================================================
+#  azure-private-endpoint — terraform.tfvars
+# ==============================================================================
+#  Copy this file to `terraform.tfvars`, set the values, then run:
+#      tofu init && tofu apply        (or:  terraform init && terraform apply)
+#
+# AUTHENTICATION — Azure:
+#   The azurerm provider authenticates to Microsoft Entra ID (Azure AD) and
+#   resolves credentials in this order: explicit OIDC, then client certificate,
+#   then client secret, then Managed Identity, then Azure CLI.
+#   Quick start: az login (then `az account set --subscription <id>`; `az
+#   login --use-device-code` for headless, `az login --service-principal -u
+#   <appId> -p <secret> --tenant <tenant>` for SP).
+#   Environment variables Terraform reads:
+#     ARM_SUBSCRIPTION_ID — Target subscription GUID; required for plan/apply in provider v4.x.
+#     ARM_TENANT_ID — Entra ID (Azure AD) tenant GUID.
+#     ARM_CLIENT_ID — App registration / service principal (or user-assigned MSI) client id.
+#     ARM_CLIENT_SECRET  (secret) — Service principal client secret (secret-based auth).
+#     ARM_CLIENT_CERTIFICATE_PATH — Path to the PKCS#12 (.pfx) client certificate.
+#   Full guide (auth + remote state):  docs/CONNECTING-PROVIDERS.md#azure
+#
+#  Secrets below read "REPLACE_ME" — never commit real secrets. Prefer
+#  TF_VAR_<name> environment variables or a secrets manager.
+#  Status: static-validated, live-test pending (see README.md).
+# ==============================================================================
+
+
+# ------------------------------------------------------------------------------
+#  REQUIRED — you must set these
+# ------------------------------------------------------------------------------
+
+# name  —  string  (REQUIRED)
+#   Name of the private endpoint. Also the base name for any module-created
+#   VNet/subnet (vnet-<name>/snet-<name>) and private DNS link.
+#   Constraint: 2-80 chars: letters, digits, '.', '_' or '-'; start alphanumeric
+#   and end alphanumeric or underscore.
+name                = "pe-app-blob"
+
+# resource_group_name  —  string  (REQUIRED)
+#   Name of an EXISTING resource group. This module does not create or destroy
+#   the resource group.
+resource_group_name = "rg-app-prod"
+
+# location  —  string  (REQUIRED)
+#   Azure region for the private endpoint and any module-created resources.
+location            = "eastus2"
+
+# ------------------------------------------------------------------------------
+#  TARGET — point at an existing resource, OR create the built-in demo target
+# ------------------------------------------------------------------------------
+
+# target_resource_id  —  string  (optional, default: null)
+#   Resource ID of the EXISTING PaaS resource to expose privately. Leave unset
+#   and set create_demo_target = true to use the built-in demo Storage Account.
+# target_resource_id = "/subscriptions/.../resourceGroups/rg-app-prod/providers/Microsoft.Storage/storageAccounts/stappprod001"
+
+# subresource_names  —  list(string)  (optional, default: ["blob"])
+#   Subresource (group ID) names on the target: e.g. ["blob"], ["file"], ["dfs"]
+#   for Storage; ["vault"] for Key Vault; ["sqlServer"] for Azure SQL; ["sites"]
+#   for App Service.
+# subresource_names = ["blob"]
+
+# is_manual_connection  —  bool  (optional, default: false)
+#   Request a manual (approval-required) connection for cross-tenant targets.
+# is_manual_connection = false
+
+# request_message  —  string  (optional, default: null)
+#   Approval message shown to the target owner (manual connections only, <=140).
+# request_message = "Please approve private link from team-app"
+
+# custom_network_interface_name  —  string  (optional, default: null)
+#   Override the auto-generated name of the endpoint's NIC.
+# custom_network_interface_name = null
+
+# ------------------------------------------------------------------------------
+#  NETWORK — supply an existing subnet, OR create a dedicated VNet + subnet
+# ------------------------------------------------------------------------------
+
+# subnet_id  —  string  (optional, default: null)
+#   Resource ID of the EXISTING subnet to host the endpoint's NIC. Leave unset
+#   and set create_network = true to have the module create one.
+# subnet_id = "/subscriptions/.../resourceGroups/rg-app-prod/providers/Microsoft.Network/virtualNetworks/vnet-app/subnets/snet-pe"
+
+# create_network  —  bool  (optional, default: false)
+#   Create a dedicated VNet + subnet for the endpoint.
+# create_network = false
+
+# vnet_address_space  —  list(string)  (optional, default: ["10.60.0.0/16"])
+#   Address space for the module-created virtual network.
+# vnet_address_space = ["10.60.0.0/16"]
+
+# subnet_address_prefixes  —  list(string)  (optional, default: ["10.60.1.0/24"])
+#   Address prefixes for the module-created subnet.
+# subnet_address_prefixes = ["10.60.1.0/24"]
+
+# ------------------------------------------------------------------------------
+#  DEMO TARGET — a self-contained Storage Account to point the endpoint at
+# ------------------------------------------------------------------------------
+
+# create_demo_target  —  bool  (optional, default: false)
+#   Create a locked-down demo Storage Account (public access OFF, keys OFF, TLS
+#   1.2+, infrastructure encryption ON) and point the endpoint at it.
+# create_demo_target = false
+
+# demo_storage_account_name  —  string  (optional, default: null)
+#   Name for the demo Storage Account (3-24 lowercase alphanumerics). Null
+#   derives a unique name from a random suffix.
+# demo_storage_account_name = null
+
+# ------------------------------------------------------------------------------
+#  PRIVATE DNS — optional zone + record integration for name resolution
+# ------------------------------------------------------------------------------
+
+# private_dns_zone_ids  —  list(string)  (optional, default: [])
+#   Resource IDs of EXISTING private DNS zones to register the endpoint's A
+#   record(s) in (e.g. the privatelink.blob.core.windows.net zone).
+# private_dns_zone_ids = []
+
+# create_private_dns_zone  —  bool  (optional, default: false)
+#   Create a private DNS zone (named private_dns_zone_name) and link it to the
+#   module-created VNet (when create_network = true).
+# create_private_dns_zone = false
+
+# private_dns_zone_name  —  string  (optional, default: null)
+#   FQDN of the private DNS zone to create. Required when create_private_dns_zone
+#   = true.
+# private_dns_zone_name = "privatelink.blob.core.windows.net"
+
+# ------------------------------------------------------------------------------
+#  TAGS
+# ------------------------------------------------------------------------------
+
+# tags  —  map(string)  (optional, default: {})
+#   Tags applied to all resources created by this module.
+tags = {
+  environment = "example"
+  managed_by  = "iac-bazaar"
+}
